@@ -95,6 +95,9 @@ void main () {
 				// 쉐이더 프로그램 사용
 				GL.UseProgram ( programId );
 
+				// 정점 버퍼 입력
+				GL.BindBuffer ( BufferTarget.ArrayBuffer, vertexBuffer );
+
 				// 정점 0번, 1번 입력 사용
 				GL.EnableVertexAttribArray ( 0 );
 				GL.EnableVertexAttribArray ( 1 );

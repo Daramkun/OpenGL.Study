@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
 
-namespace OGL.Study.Day4
+namespace OGL.Study.Day6
 {
 	static class Program
 	{
@@ -15,7 +15,7 @@ namespace OGL.Study.Day4
 			// OpenGL 창
 			GameWindow window = new GameWindow ();
 
-			int vertexBuffer = 0;
+			int vertexBuffer = 0, indexBuffer = 0;
 			int vertexShader = 0, fragmentShader = 0, programId = 0;
 
 			// 창이 처음 생성됐을 때 
@@ -29,11 +29,25 @@ namespace OGL.Study.Day4
 				// 정점 버퍼에 정점 데이터 입력
 				float [] vertices =
 				{
-					+0.0f, +0.5f,
-					+0.5f, -0.5f,
-					-0.5f, -0.5f,
+					-0.5f, +0.5f, 1, 0, 0, 1,
+					+0.5f, +0.5f, 0, 1, 0, 1,
+					+0.5f, -0.5f, 0, 0, 1, 1,
+					-0.5f, -0.5f, 1, 1, 1, 1,
 				};
 				GL.BufferData<float> ( BufferTarget.ArrayBuffer, new IntPtr ( vertices.Length * sizeof ( float ) ), vertices, BufferUsageHint.StaticDraw );
+
+				// 인덱스 버퍼 생성
+				indexBuffer = GL.GenBuffer ();
+				GL.BindBuffer ( BufferTarget.ElementArrayBuffer, indexBuffer );
+
+				// 인덱스 버퍼에 인덱스 데이터 입력
+				ushort [] indices =
+				{
+					0, 1, 2,
+					2, 3, 0,
+				};
+				GL.BufferData<ushort> ( BufferTarget.ElementArrayBuffer, new IntPtr ( indices.Length * sizeof ( ushort ) ),
+					indices, BufferUsageHint.StaticDraw );
 
 				// 쉐이더 생성
 				vertexShader = GL.CreateShader ( ShaderType.VertexShader );
@@ -42,18 +56,25 @@ namespace OGL.Study.Day4
 				// 컴파일 할 소스 입력
 				//> GLSL 요구 버전은 OpenGL 3.2 (GLSL 1.5)
 				GL.ShaderSource ( vertexShader, @"#version 150
-// 정점 쉐이더 입력 인자는 2차원 벡터 하나
+// 정점 쉐이더 입력 인자는 2차원 위치 벡터 하나와 4차원 색상 벡터 하나
 in vec2 in_pos;
+in vec4 in_col;
+
+// 정점 쉐이더 출력 인자는 4차원 색상 벡터 하나
+out vec4 out_col;
 
 void main () {
 	// 정점 위치 설정
 	//> vec2를 vec4로 변환한 이유는 아핀 공간(Affine space)에 맞추기 위해서
 	gl_Position = vec4 ( in_pos, 0, 1 );
+	out_col = in_col;
 }" );
 				GL.ShaderSource ( fragmentShader, @"#version 150
+in vec4 out_col;
+
 void main () {
-	// 색상은 마젠타 (R: 255, G: 0, B: 255)
-	gl_FragColor = vec4 ( 1, 0, 1, 1 );
+	// 색상은 정점 쉐이더에서 건너온 색상으로
+	gl_FragColor = out_col;
 }" );
 				// 쉐이더 소스 컴파일
 				GL.CompileShader ( vertexShader );
@@ -91,13 +112,19 @@ void main () {
 				// 정점 버퍼 입력
 				GL.BindBuffer ( BufferTarget.ArrayBuffer, vertexBuffer );
 
-				// 정점 0번 입력 사용
+				// 정점 0번, 1번 입력 사용
 				GL.EnableVertexAttribArray ( 0 );
+				GL.EnableVertexAttribArray ( 1 );
 				// 정점 0번은 float 2개 크기이며, 위치는 0이고 단위벡터가 아님
-				GL.VertexAttribPointer ( 0, 2, VertexAttribPointerType.Float, false, 0, 0 );
+				GL.VertexAttribPointer ( 0, 2, VertexAttribPointerType.Float, false, sizeof ( float ) * 6, 0 );
+				// 정점 1번은 float 4개 크기이며, 위치는 8이고 단위벡터가 아님
+				GL.VertexAttribPointer ( 1, 4, VertexAttribPointerType.Float, false, sizeof ( float ) * 6, 8 );
+
+				// 인덱스 버퍼 입력
+				GL.BindBuffer ( BufferTarget.ElementArrayBuffer, indexBuffer );
 
 				// 정점 그리기
-				GL.DrawArrays ( PrimitiveType.Triangles, 0, 3 );
+				GL.DrawElements ( PrimitiveType.Triangles, 6, DrawElementsType.UnsignedShort, 0 );
 
 				// 백 버퍼와 화면 버퍼 교환
 				window.SwapBuffers ();
@@ -109,8 +136,9 @@ void main () {
 				GL.DeleteShader ( fragmentShader );
 				GL.DeleteShader ( vertexShader );
 
-				// 정점 버퍼 제거
+				// 버퍼 제거
 				//> 이 과정을 처리하지 않으면 비디오 메모리 누수가 발생할 수 있음
+				GL.DeleteBuffer ( indexBuffer );
 				GL.DeleteBuffer ( vertexBuffer );
 			};
 
