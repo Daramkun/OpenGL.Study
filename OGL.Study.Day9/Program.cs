@@ -105,7 +105,7 @@ namespace OGL.Study.Day9
 				// 컴파일 할 소스 입력
 				//> GLSL 요구 버전은 OpenGL 3.2 (GLSL 1.5)
 				GL.ShaderSource ( vertexShader, @"#version 150
-// 정점 쉐이더 입력 인자는 2차원 위치 벡터 하나와 2차원 텍스쳐 좌표 벡터 하나
+// 정점 쉐이더 입력 인자는 3차원 위치 벡터 하나와 2차원 텍스쳐 좌표 벡터 하나
 in vec3 in_pos;
 in vec2 in_tex;
 
