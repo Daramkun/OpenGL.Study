@@ -9,13 +9,13 @@ using System.Threading.Tasks;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
 
-namespace OGL.Study.Day8
+namespace OGL.Study.Day9
 {
 	static class Program
 	{
 		static void GetImageRawData ( int textureId )
 		{
-			Bitmap image = new Bitmap ( Assembly.GetEntryAssembly ().GetManifestResourceStream ( "OGL.Study.Day8.Sample.png" ) );
+			Bitmap image = new Bitmap ( Assembly.GetEntryAssembly ().GetManifestResourceStream ( "OGL.Study.Day9.Sample.png" ) );
 			var data = image.LockBits ( new Rectangle ( new Point (), image.Size ), ImageLockMode.ReadOnly,
 				System.Drawing.Imaging.PixelFormat.Format32bppArgb );
 
@@ -37,9 +37,11 @@ namespace OGL.Study.Day8
 			// OpenGL 창
 			GameWindow window = new GameWindow ();
 
-			int vertexBuffer = 0, indexBuffer = 0;
+			int vertexBuffer = 0;
 			int vertexShader = 0, fragmentShader = 0, programId = 0;
 			int textureId = 0;
+
+			float rotationAngle = 0;
 
 			// 창이 처음 생성됐을 때 
 			window.Load += ( sender, e ) =>
@@ -52,25 +54,49 @@ namespace OGL.Study.Day8
 				// 정점 버퍼에 정점 데이터 입력
 				float [] vertices =
 				{
-					-0.5f, +0.5f, 1, 0,
-					+0.5f, +0.5f, 0, 0,
-					+0.5f, -0.5f, 0, 1,
-					-0.5f, -0.5f, 1, 1,
+					-0.5f, -0.5f, -0.5f, 0.0f, 0.0f,
+					 0.5f, -0.5f, -0.5f, 1.0f, 0.0f,
+					 0.5f,  0.5f, -0.5f, 1.0f, 1.0f,
+					 0.5f,  0.5f, -0.5f, 1.0f, 1.0f,
+					-0.5f,  0.5f, -0.5f, 0.0f, 1.0f,
+					-0.5f, -0.5f, -0.5f, 0.0f, 0.0f,
+
+					-0.5f, -0.5f,  0.5f, 0.0f, 0.0f,
+					 0.5f, -0.5f,  0.5f, 1.0f, 0.0f,
+					 0.5f,  0.5f,  0.5f, 1.0f, 1.0f,
+					 0.5f,  0.5f,  0.5f, 1.0f, 1.0f,
+					-0.5f,  0.5f,  0.5f, 0.0f, 1.0f,
+					-0.5f, -0.5f,  0.5f, 0.0f, 0.0f,
+
+					-0.5f,  0.5f,  0.5f, 1.0f, 0.0f,
+					-0.5f,  0.5f, -0.5f, 1.0f, 1.0f,
+					-0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
+					-0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
+					-0.5f, -0.5f,  0.5f, 0.0f, 0.0f,
+					-0.5f,  0.5f,  0.5f, 1.0f, 0.0f,
+
+					 0.5f,  0.5f,  0.5f, 1.0f, 0.0f,
+					 0.5f,  0.5f, -0.5f, 1.0f, 1.0f,
+					 0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
+					 0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
+					 0.5f, -0.5f,  0.5f, 0.0f, 0.0f,
+					 0.5f,  0.5f,  0.5f, 1.0f, 0.0f,
+
+					-0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
+					 0.5f, -0.5f, -0.5f, 1.0f, 1.0f,
+					 0.5f, -0.5f,  0.5f, 1.0f, 0.0f,
+					 0.5f, -0.5f,  0.5f, 1.0f, 0.0f,
+					-0.5f, -0.5f,  0.5f, 0.0f, 0.0f,
+					-0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
+
+					-0.5f,  0.5f, -0.5f, 0.0f, 1.0f,
+					 0.5f,  0.5f, -0.5f, 1.0f, 1.0f,
+					 0.5f,  0.5f,  0.5f, 1.0f, 0.0f,
+					 0.5f,  0.5f,  0.5f, 1.0f, 0.0f,
+					-0.5f,  0.5f,  0.5f, 0.0f, 0.0f,
+					-0.5f,  0.5f, -0.5f, 0.0f, 1.0f
 				};
 				GL.BufferData<float> ( BufferTarget.ArrayBuffer, new IntPtr ( vertices.Length * sizeof ( float ) ), vertices, BufferUsageHint.StaticDraw );
-
-				// 인덱스 버퍼 생성
-				indexBuffer = GL.GenBuffer ();
-				GL.BindBuffer ( BufferTarget.ElementArrayBuffer, indexBuffer );
-
-				// 인덱스 버퍼에 인덱스 데이터 입력
-				ushort [] indices =
-				{
-					0, 1, 2,
-					2, 3, 0,
-				};
-				GL.BufferData<ushort> ( BufferTarget.ElementArrayBuffer, new IntPtr ( indices.Length * sizeof ( ushort ) ),
-					indices, BufferUsageHint.StaticDraw );
 
 				// 쉐이더 생성
 				vertexShader = GL.CreateShader ( ShaderType.VertexShader );
@@ -80,16 +106,21 @@ namespace OGL.Study.Day8
 				//> GLSL 요구 버전은 OpenGL 3.2 (GLSL 1.5)
 				GL.ShaderSource ( vertexShader, @"#version 150
 // 정점 쉐이더 입력 인자는 2차원 위치 벡터 하나와 2차원 텍스쳐 좌표 벡터 하나
-in vec2 in_pos;
+in vec3 in_pos;
 in vec2 in_tex;
 
 // 정점 쉐이더 출력 인자는 2차원 텍스쳐 좌표 벡터 하나
 out vec2 out_tex;
 
+// 변환 행렬을 가져옴
+uniform mat4 worldMatrix;
+uniform mat4 viewMatrix;
+uniform mat4 projectionMatrix;
+
 void main () {
 	// 정점 위치 설정
-	//> vec2를 vec4로 변환한 이유는 아핀 공간(Affine space)에 맞추기 위해서
-	gl_Position = vec4 ( in_pos, 0, 1 );
+	//> vec3를 vec4로 변환한 이유는 아핀 공간(Affine space)에 맞추기 위해서
+	gl_Position = projectionMatrix * viewMatrix * worldMatrix * vec4 ( in_pos, 1 );
 	out_tex = in_tex;
 }" );
 				GL.ShaderSource ( fragmentShader, @"#version 150
@@ -126,7 +157,7 @@ void main () {
 			// 업데이트 프레임(연산처리, 입력처리 등)
 			window.UpdateFrame += ( sender, e ) =>
 			{
-
+				rotationAngle += ( float ) e.Time;
 			};
 			// 렌더링 프레임(화면 표시)
 			window.RenderFrame += ( sender, e ) =>
@@ -144,26 +175,46 @@ void main () {
 				// 쉐이더 프로그램 사용
 				GL.UseProgram ( programId );
 
+				// 깊이 테스트 켬
+				//> 켜지 않고 실행하면 어떤 결과가 일어나는지 확인해보자
+				GL.Enable ( EnableCap.DepthTest );
+
 				// 정점 버퍼 입력
 				GL.BindBuffer ( BufferTarget.ArrayBuffer, vertexBuffer );
 
 				// 정점 0번, 1번 입력 사용
 				GL.EnableVertexAttribArray ( 0 );
 				GL.EnableVertexAttribArray ( 1 );
-				// 정점 0번은 float 2개 크기이며, 위치는 0이고 단위벡터가 아님
-				GL.VertexAttribPointer ( 0, 2, VertexAttribPointerType.Float, false, sizeof ( float ) * 4, 0 );
-				// 정점 1번은 float 2개 크기이며, 위치는 8이고 단위벡터가 아님
-				GL.VertexAttribPointer ( 1, 2, VertexAttribPointerType.Float, false, sizeof ( float ) * 4, 8 );
+				// 정점 0번은 float 3개 크기이며, 위치는 0이고 단위벡터가 아님
+				GL.VertexAttribPointer ( 0, 3, VertexAttribPointerType.Float, false, sizeof ( float ) * 5, 0 );
+				// 정점 1번은 float 2개 크기이며, 위치는 12이고 단위벡터가 아님
+				GL.VertexAttribPointer ( 1, 2, VertexAttribPointerType.Float, false, sizeof ( float ) * 5, 12 );
 
 				// 텍스처 버퍼 입력
 				GL.BindTexture ( TextureTarget.Texture2D, textureId );
 				GL.Uniform1 ( GL.GetUniformLocation ( programId, "sampler" ), 0 );
 
-				// 인덱스 버퍼 입력
-				GL.BindBuffer ( BufferTarget.ElementArrayBuffer, indexBuffer );
+				// 월드 행렬 입력
+				// 월드 변환 = 물체에 대한 변환
+				Matrix4 worldMatrix = Matrix4.CreateRotationY ( rotationAngle ) /* << Y 좌표축을 고정하여 rotationAngle만큼 회전 */;
+				GL.UniformMatrix4 ( GL.GetUniformLocation ( programId, "worldMatrix" ), false, ref worldMatrix );
+
+				// 뷰 행렬 입력
+				// 뷰 변환 = 카메라
+				Matrix4 viewMatrix = Matrix4.LookAt (
+					/* 카메라의 위치 */ new Vector3 ( 2, 2, 2 ),
+					/* 카메라가 보고 있는 위치 */ new Vector3 (),
+					/* 카메라의 상방 벡터 */ new Vector3 ( 0, 1, 0 )
+					);
+				GL.UniformMatrix4 ( GL.GetUniformLocation ( programId, "viewMatrix" ), false, ref viewMatrix );
+
+				// 프로젝션 행렬 입력
+				// 프로젝션 변환 = 3D 공간 좌표를 2D 공간 좌표로
+				Matrix4 projectionMatrix = Matrix4.CreatePerspectiveFieldOfView ( 3.141592f / 4, 800 / 600.0f, 0.001f, 1000.0f );
+				GL.UniformMatrix4 ( GL.GetUniformLocation ( programId, "projectionMatrix" ), false, ref projectionMatrix );
 
 				// 정점 그리기
-				GL.DrawElements ( PrimitiveType.Triangles, 6, DrawElementsType.UnsignedShort, 0 );
+				GL.DrawArrays ( PrimitiveType.Triangles, 0, 36 );
 
 				// 백 버퍼와 화면 버퍼 교환
 				window.SwapBuffers ();
@@ -179,7 +230,6 @@ void main () {
 
 				// 버퍼 제거
 				//> 이 과정을 처리하지 않으면 비디오 메모리 누수가 발생할 수 있음
-				GL.DeleteBuffer ( indexBuffer );
 				GL.DeleteBuffer ( vertexBuffer );
 			};
 
