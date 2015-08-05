@@ -210,7 +210,14 @@ void main () {
 
 				// 프로젝션 행렬 입력
 				// 프로젝션 변환 = 3D 공간 좌표를 2D 공간 좌표로
-				Matrix4 projectionMatrix = Matrix4.CreatePerspectiveFieldOfView ( 3.141592f / 4, 800 / 600.0f, 0.001f, 1000.0f );
+				// Perspective Projection = 원근 투영
+				// Orthographic Projection = 직교 투영
+				Matrix4 projectionMatrix = Matrix4.CreatePerspectiveFieldOfView (
+					/* 45도 각도로 내려봄 */ 3.141592f / 4,
+					/* 화면 종횡비 */ 800 / 600.0f,
+					/* 최소 시야 */ 0.001f,
+					/* 최대 시야 */ 1000.0f
+					);
 				GL.UniformMatrix4 ( GL.GetUniformLocation ( programId, "projectionMatrix" ), false, ref projectionMatrix );
 
 				// 정점 그리기
