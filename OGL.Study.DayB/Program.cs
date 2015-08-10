@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
 
-namespace OGL.Study.DayA
+namespace OGL.Study.DayB
 {
 	static class Program
 	{
@@ -20,6 +20,8 @@ namespace OGL.Study.DayA
 
 			int vertexBuffer = 0, vertexBuffer2 = 0;
 			int vertexShader = 0, fragmentShader = 0, programId = 0;
+			int frameBuffer = 0, texture = 0;
+			int vertexShader2 = 0, fragmentShader2 = 0, programId2 = 0;
 
 			float rotationAngle = 0;
 
@@ -78,23 +80,6 @@ namespace OGL.Study.DayA
 				};
 				GL.BufferData<float> ( BufferTarget.ArrayBuffer, new IntPtr ( vertices.Length * sizeof ( float ) ), vertices, BufferUsageHint.StaticDraw );
 				
-				// 정점 버퍼 생성
-				vertexBuffer2 = GL.GenBuffer ();
-				// 정점 버퍼 입력
-				GL.BindBuffer ( BufferTarget.ArrayBuffer, vertexBuffer2 );
-
-				// 정점 버퍼에 정점 데이터 입력
-				float [] vertices2 =
-				{
-					-1.0f, -0.5f, -1.0f,
-					 1.0f, -0.5f, -1.0f,
-					 1.0f, -0.5f,  1.0f,
-					 1.0f, -0.5f,  1.0f,
-					-1.0f, -0.5f,  1.0f,
-					-1.0f, -0.5f, -1.0f
-				};
-				GL.BufferData<float> ( BufferTarget.ArrayBuffer, new IntPtr ( vertices2.Length * sizeof ( float ) ), vertices2, BufferUsageHint.StaticDraw );
-
 				// 쉐이더 생성
 				vertexShader = GL.CreateShader ( ShaderType.VertexShader );
 				fragmentShader = GL.CreateShader ( ShaderType.FragmentShader );
@@ -132,6 +117,84 @@ void main () {
 
 				// 쉐이더 프로그램에 각 쉐이더 링크
 				GL.LinkProgram ( programId );
+
+				// 프레임버퍼 출력용 쉐이더 생성
+				vertexShader2 = GL.CreateShader ( ShaderType.VertexShader );
+				fragmentShader2 = GL.CreateShader ( ShaderType.FragmentShader );
+
+				// 컴파일 할 소스 입력
+				//> GLSL 요구 버전은 OpenGL 3.2 (GLSL 1.5)
+				GL.ShaderSource ( vertexShader2, @"#version 150
+// 정점 쉐이더 입력 인자는 2차원 위치 벡터 둘
+in vec2 in_pos;
+in vec2 in_tex;
+
+out vec2 texcoord;
+
+// 변환 행렬을 가져옴
+uniform mat4 projectionMatrix;
+
+void main () {
+	// 정점 위치 설정
+	//> vec2를 vec4로 변환한 이유는 아핀 공간(Affine space)에 맞추기 위해서
+	gl_Position = projectionMatrix * vec4 ( in_pos, 0, 1 );
+	texcoord = in_tex;
+}" );
+				GL.ShaderSource ( fragmentShader2, @"#version 150
+in vec2 texcoord;
+
+uniform sampler2D fb;
+
+void main () {
+	// 프레임버퍼 텍스처의 색상과 좌표를 대강 조합하여 만들어낸 색상 값을 픽셀 쉐이더의 결과로 제출
+	gl_FragColor = texture ( fb, texcoord ) * 
+		vec4 ( texcoord.x, texcoord.y, texcoord.x + texcoord.y, 1 ) +
+		vec4 ( texcoord.x + texcoord.y, texcoord.y, texcoord.x, 1 );
+}" );
+				// 쉐이더 소스 컴파일
+				GL.CompileShader ( vertexShader2 );
+				GL.CompileShader ( fragmentShader2 );
+
+				// 쉐이더 프로그램 생성 및 쉐이더 추가
+				programId2 = GL.CreateProgram ();
+				GL.AttachShader ( programId2, vertexShader2 );
+				GL.AttachShader ( programId2, fragmentShader2 );
+
+				// 쉐이더 프로그램에 각 쉐이더 링크
+				GL.LinkProgram ( programId2 );
+
+				// 프레임버퍼에 사용할 텍스처 생성
+				texture = GL.GenTexture ();
+				GL.BindTexture ( TextureTarget.Texture2D, texture );
+				GL.TexImage2D ( TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8, 800, 600, 0, PixelFormat.Bgra, PixelType.UnsignedByte, IntPtr.Zero );
+				GL.TexParameter ( TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, ( int ) TextureMinFilter.Linear );
+				GL.TexParameter ( TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, ( int ) TextureMinFilter.Linear );
+
+				// 프레임버퍼 생성
+				frameBuffer = GL.GenFramebuffer ();
+				
+				GL.BindFramebuffer ( FramebufferTarget.Framebuffer, frameBuffer );
+				
+				// 프레임버퍼에 텍스처 부착
+				GL.FramebufferTexture2D ( FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, texture, 0 );
+				
+				// 정점 버퍼 생성
+				vertexBuffer2 = GL.GenBuffer ();
+				// 정점 버퍼 입력
+				GL.BindBuffer ( BufferTarget.ArrayBuffer, vertexBuffer2 );
+
+				// 정점 버퍼에 정점 데이터 입력
+				float [] vertices2 =
+				{
+					  0.0f,   0.0f, 0.0f, 1.0f,
+					  0.0f, 600.0f, 0.0f, 0.0f,
+					800.0f,   0.0f, 1.0f, 1.0f,
+
+					800.0f, 600.0f, 1.0f, 0.0f,
+					  0.0f, 600.0f, 0.0f, 0.0f,
+                    800.0f,   0.0f, 1.0f, 1.0f,
+				};
+				GL.BufferData<float> ( BufferTarget.ArrayBuffer, new IntPtr ( vertices2.Length * sizeof ( float ) ), vertices2, BufferUsageHint.StaticDraw );
 			};
 			// 업데이트 프레임(연산처리, 입력처리 등)
 			window.UpdateFrame += ( sender, e ) =>
@@ -151,42 +214,47 @@ void main () {
 				// 화면 초기화(색상 버퍼, 깊이 버퍼에 처리)
 				GL.Clear ( ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit );
 
+				// 프레임버퍼 적용
+				GL.BindFramebuffer ( FramebufferTarget.Framebuffer, frameBuffer );
+				
 				// 깊이 테스트 켬
 				GL.Enable ( EnableCap.DepthTest );
 
-				// 윗상자
+				// 프레임버퍼에 대한 뷰포트 지정
+				GL.Viewport ( 0, 0, 800, 600 );
+
+				// 프레임버퍼 초기화 설정
+				//> 화면 색상은 검정색(R: 0, G: 0, B: 0, A: 255)
+				GL.ClearColor ( 0, 0, 0, 1 );
+				//> 깊이 버퍼는 1(쓸 수 있는 깊이)
+				GL.ClearDepth ( 1 );
+				//> 스텐실 버퍼는 0
+				GL.ClearStencil ( 0 );
+				// 화면 초기화(색상 버퍼, 깊이 버퍼에 처리)
+				GL.Clear ( ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit );
+
+				// 상자
 				DrawObject ( programId, vertexBuffer, 36, Matrix4.CreateRotationY ( rotationAngle ), new Vector4 ( 1, 1, 1, 1 ) );
-
-				// 스텐실 테스트 켬
-				GL.Enable ( EnableCap.StencilTest );
-
-				// 스텐실 테스트 실패 시 기존 값, Z 실패 시 기존 값, 성공 시 덮어쓰기
-				GL.StencilOp ( StencilOp.Keep, StencilOp.Keep, StencilOp.Replace );
-				// 마스크 값이 어떤 경우이든 스텐실 테스트가 성공만 하면
-				GL.StencilFunc ( StencilFunction.Always, 1, 0xff );
-				// 그리는 부위의 스텐실 버퍼 위치에 0xff 덮어쓰기
-				GL.StencilMask ( 0xff );
-				// 깊이 마스크는 끔
-				GL.DepthMask ( false );
-				// 화면 초기화(스텐실 버퍼에 처리)
-				GL.Clear ( ClearBufferMask.StencilBufferBit );
-
-				// 중간 판(거울)
-				DrawObject ( programId, vertexBuffer2, 6, Matrix4.CreateRotationY ( rotationAngle ), new Vector4 ( 1, 0, 1, 0.5f ) );
-				
-				// 마스크 값이 0xff와 같으면
-				GL.StencilFunc ( StencilFunction.Equal, 1, 0xff );
-				// 그리는 부위의 스텐실 버퍼 위치에 0x00 덮어쓰기
-				GL.StencilMask ( 0x00 );
-				// 깊이 마스크 켬
-				GL.DepthMask ( true );
-
-				// 아랫상자(반사된 상자)
-				DrawObject ( programId, vertexBuffer, 36, Matrix4.CreateTranslation ( 0, -1, 0 ) * Matrix4.CreateRotationY ( rotationAngle ),
-					new Vector4 ( 0.9f, 0.9f, 0.9f, 1 ) );
+				DrawObject ( programId, vertexBuffer, 36, Matrix4.CreateRotationX ( rotationAngle ) * 
+					Matrix4.CreateRotationZ ( rotationAngle ) * Matrix4.CreateTranslation ( 1, -1, -1 ), new Vector4 ( 1, 1, 1, 1 ) );
 
 				// 스텐실 테스트 끔
 				GL.Disable ( EnableCap.StencilTest );
+
+				// 프레임버퍼 적용 해제 (백버퍼 적용)
+				GL.BindFramebuffer ( FramebufferTarget.Framebuffer, 0 );
+				
+				// 백 버퍼에 대한 뷰포트 지정
+				GL.Viewport ( 0, 0, 800, 600 );
+
+				// 2D 텍스쳐 켬
+				GL.Enable ( EnableCap.Texture2D );
+
+				// 프레임버퍼 텍스쳐 입력
+				GL.BindTexture ( TextureTarget.Texture2D, texture );
+
+				// 프레임버퍼를 화면에 출력
+				DrawFrameBuffer ( programId2, vertexBuffer2 );
 
 				// 백 버퍼와 화면 버퍼 교환
 				window.SwapBuffers ();
@@ -194,6 +262,13 @@ void main () {
 			// 창이 종료될 때
 			window.Closing += ( sender, e ) =>
 			{
+				GL.DeleteFramebuffer ( frameBuffer );
+				GL.DeleteTexture ( texture );
+
+				GL.DeleteProgram ( programId2 );
+				GL.DeleteShader ( fragmentShader2 );
+				GL.DeleteShader ( vertexShader2 );
+
 				GL.DeleteProgram ( programId );
 				GL.DeleteShader ( fragmentShader );
 				GL.DeleteShader ( vertexShader );
@@ -250,6 +325,44 @@ void main () {
 
 			// 정점 그리기
 			GL.DrawArrays ( PrimitiveType.Triangles, 0, vertices );
+		}
+
+		private static void DrawFrameBuffer ( int programId, int vertexBuffer )
+		{
+			// 쉐이더 프로그램 사용
+			GL.UseProgram ( programId );
+
+			// 정점 버퍼 입력
+			GL.BindBuffer ( BufferTarget.ArrayBuffer, vertexBuffer );
+
+			// 정점 0, 1번 입력 사용
+			GL.EnableVertexAttribArray ( 0 );
+			GL.EnableVertexAttribArray ( 1 );
+			// 정점 0번은 float 2개 크기이며, 위치는 0이고 단위벡터가 아님
+			GL.VertexAttribPointer ( 0, 2, VertexAttribPointerType.Float, false, sizeof ( float ) * 4, 0 );
+			// 정점 1번은 float 2개 크기이며, 위치는 8이고 단위벡터가 아님
+			GL.VertexAttribPointer ( 1, 2, VertexAttribPointerType.Float, false, sizeof ( float ) * 4, 8 );
+
+			GL.Uniform1 ( GL.GetUniformLocation ( programId, "fb" ), 0 );
+
+			// 프로젝션 행렬 입력
+			// 프로젝션 변환 = 3D 공간 좌표를 2D 공간 좌표로
+			// Perspective Projection = 원근 투영
+			// Orthographic Projection = 직교 투영
+			Matrix4 projectionMatrix = Matrix4.CreateOrthographicOffCenter (
+				/* 최좌단 */ 0,
+				/* 최우단 */ 800,
+				/* 최하단 */ 600,
+				/* 최상단 */ 0,
+				/* 최소 시야 */ 0.000f,
+				/* 최대 시야 */ 1000.0f
+				);
+			GL.UniformMatrix4 ( GL.GetUniformLocation ( programId, "projectionMatrix" ), false, ref projectionMatrix );
+
+			// 정점 그리기
+			GL.DrawArrays ( PrimitiveType.Triangles, 0, 6 );
+
+			GL.DisableVertexAttribArray ( 1 );
 		}
 	}
 }
